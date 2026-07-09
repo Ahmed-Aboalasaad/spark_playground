@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data files are large and fetched separately; keep them out of git.
+data/*.parquet
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Saved models
+models/
