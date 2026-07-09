@@ -16,7 +16,10 @@ def render_sidebar(state: AppState) -> None:
     with st.sidebar:
         st.markdown("### Dataset")
 
-        cleaned_ready = state.cleaned_df is not None
+        # "Ready" means cleaning has run, not that a concrete DataFrame exists:
+        # in placeholder mode the cleaner returns df=None but records a summary,
+        # so keying on the summary lets the Cleaned option be selected there too.
+        cleaned_ready = state.cleaning_summary is not None
         options = [DatasetChoice.RAW, DatasetChoice.CLEANED]
 
         current = state.selection

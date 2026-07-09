@@ -79,8 +79,15 @@ class AppState:
 
     @property
     def is_loaded(self) -> bool:
-        """True once the raw dataset has been loaded into the session."""
-        return self.raw_df is not None
+        """True once a dataset load has completed.
+
+        Keyed on ``load_info`` rather than ``raw_df`` so the app is navigable in
+        placeholder mode: the skeleton loader returns ``df=None`` but still
+        produces a (zeroed) load-info dict, and every downstream pipeline
+        function accepts ``None`` for the DataFrame. The real loader sets both
+        ``raw_df`` and ``load_info``, so this stays correct once Spark lands.
+        """
+        return self.load_info is not None
 
     # -- Current selection ------------------------------------------------ #
     @property

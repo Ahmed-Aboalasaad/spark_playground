@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nyc-taxi-app",
+      "runtimeExecutable": "C:\\Users\\ahmed\\OneDrive\\Desktop\\Spark\\spark_playground\\nyc_taxi_spark\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "streamlit",
+        "run",
+        "C:\\Users\\ahmed\\OneDrive\\Desktop\\Spark\\spark_playground\\nyc_taxi_spark\\app\\Home.py",
+        "--server.port",
+        "8501",
+        "--server.headless",
+        "true"
+      ],
+      "port": 8501
+    }
+  ]
+}

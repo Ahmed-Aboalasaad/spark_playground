@@ -85,8 +85,8 @@ if st.button("Run cleaning", type="primary"):
 
     show_execution_time(result)
 
-# Show the effect once a cleaned dataset exists.
-if state.cleaning_summary and state.cleaned_df is not None:
+# Show the effect once cleaning has run (the cleaned frame may be a placeholder).
+if state.cleaning_summary:
     st.divider()
     st.subheader("Effect of preprocessing")
     st.caption("Select the **Cleaned Dataset** in the sidebar to run analyses "

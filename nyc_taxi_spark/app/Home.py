@@ -62,7 +62,10 @@ data_service = DataService(state)
 
 with col_load:
     if st.button("Load dataset", type="primary", use_container_width=True):
-        spark = get_spark()
+        # In placeholder mode the loader ignores the session entirely, so we
+        # skip starting Spark — the app must stay fully navigable on mock data
+        # even where no JDK/Spark is available. The real loader needs a session.
+        spark = None if PLACEHOLDER_MODE else get_spark()
         state.spark = spark
         with st.spinner("Loading NYC Taxi dataset..."):
             result = data_service.load(spark)
@@ -72,7 +75,7 @@ with col_load:
 
 with col_reload:
     if st.button("Reload dataset", use_container_width=True, disabled=not state.is_loaded):
-        spark = state.spark or get_spark()
+        spark = None if PLACEHOLDER_MODE else (state.spark or get_spark())
         with st.spinner("Reloading..."):
             result = data_service.load(spark)
         st.success("Reloaded.")

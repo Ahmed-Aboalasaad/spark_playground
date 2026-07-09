@@ -22,7 +22,18 @@ def _build_session(cfg: SparkConfig) -> Any:
     Imports pyspark lazily so importing this module doesn't require Spark to be
     installed until a session is actually requested.
     """
+    import os
+    import sys
+
     from pyspark.sql import SparkSession
+
+    # Pin Spark's Python workers to the *same* interpreter running this process.
+    # Otherwise Spark launches workers via whatever ``python`` is first on PATH,
+    # which on this machine is a different minor version (3.13) than the venv
+    # driver (3.12), and Spark aborts with PYTHON_VERSION_MISMATCH. Forcing both
+    # to ``sys.executable`` makes the session reproducible regardless of PATH.
+    os.environ["PYSPARK_PYTHON"] = sys.executable
+    os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
     builder = SparkSession.builder.appName(cfg.app_name).master(cfg.master)
     for key, value in cfg.as_spark_conf().items():
