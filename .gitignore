@@ -1,0 +1,7 @@
+# Claude Code / agent tooling — local dev environment only
+.agents/
+.claude/
+
+# OS cruft
+.DS_Store
+Thumbs.db
