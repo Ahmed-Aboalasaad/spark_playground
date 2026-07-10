@@ -16,6 +16,31 @@ from typing import Any
 from config import SPARK_CONFIG, SparkConfig
 
 
+def _ensure_java_home() -> None:
+    """Best-effort fix-up for a common local dev-machine gotcha on Windows.
+
+    Spark 4.x requires Java 17+, but an older Java (e.g. 8) is often still
+    first on PATH -- especially in a process whose environment predates a
+    JDK install (a long-lived launcher/IDE process won't see a User env-var
+    change until it restarts). If ``JAVA_HOME`` isn't set and a Microsoft
+    OpenJDK 17+ install exists at its standard location, point at it. Never
+    overrides an already-set ``JAVA_HOME``, and is a no-op off Windows or
+    without that install.
+    """
+    import glob
+    import os
+
+    if os.environ.get("JAVA_HOME") or os.name != "nt":
+        return
+    candidates = sorted(
+        glob.glob(r"C:\Program Files\Microsoft\jdk-17*-hotspot")
+        + glob.glob(r"C:\Program Files\Microsoft\jdk-21*-hotspot"),
+        reverse=True,
+    )
+    if candidates:
+        os.environ["JAVA_HOME"] = candidates[0]
+
+
 def _build_session(cfg: SparkConfig) -> Any:
     """Construct a SparkSession from a :class:`SparkConfig`.
 
@@ -24,6 +49,8 @@ def _build_session(cfg: SparkConfig) -> Any:
     """
     import os
     import sys
+
+    _ensure_java_home()
 
     from pyspark.sql import SparkSession
 

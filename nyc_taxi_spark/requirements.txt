@@ -2,3 +2,4 @@ streamlit>=1.36
 pyspark>=4,<5  # Spark 4.x requires Java 17+ (set JAVA_HOME accordingly)
 plotly>=5.22
 pandas>=2.2
+requests>=2.31  # dataset download (pipeline/dataset_manager.py)

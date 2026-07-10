@@ -31,6 +31,27 @@ ZONE_LOOKUP_PATH = Path(
 # Glob used to discover monthly parquet files inside DATA_DIR.
 PARQUET_GLOB = "yellow_tripdata_*.parquet"
 
+# Filename template for one month of data, e.g. "yellow_tripdata_2023-01.parquet".
+PARQUET_FILENAME_TEMPLATE = "yellow_tripdata_{year:04d}-{month:02d}.parquet"
+
+
+# --------------------------------------------------------------------------- #
+# Dataset acquisition (download control panel)
+# --------------------------------------------------------------------------- #
+
+# NYC TLC's public trip-data bucket. Monthly files live at
+# f"{TLC_BASE_URL}/{PARQUET_FILENAME_TEMPLATE.format(year=y, month=m)}".
+TLC_BASE_URL = "https://d37ci6vzurychx.cloudfront.net/trip-data"
+
+# TLC's yellow taxi parquet publication starts January 2009.
+DATASET_EARLIEST_MONTH: tuple[int, int] = (2009, 1)
+
+# Streamed in chunks so large monthly files don't have to fit in memory at once.
+DOWNLOAD_CHUNK_BYTES = 1024 * 1024  # 1 MiB
+
+# Per-request network timeout (seconds): (connect timeout, read timeout).
+DOWNLOAD_TIMEOUT_SECONDS: tuple[int, int] = (10, 60)
+
 
 # --------------------------------------------------------------------------- #
 # Spark configuration

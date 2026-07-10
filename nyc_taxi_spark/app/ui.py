@@ -13,6 +13,7 @@ this module stays importable outside a Streamlit runtime.
 """
 from __future__ import annotations
 
+import calendar
 from typing import Any
 
 from pipeline.analysis import Analysis, ChartType
@@ -54,6 +55,22 @@ def require_dataset(state: Any) -> bool:
                 "data to get started.")
         return False
     return True
+
+
+def format_bytes(n: int) -> str:
+    """Human-readable file size, e.g. ``1536000`` -> ``"1.5 MB"``."""
+    size = float(n)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} TB"  # pragma: no cover - unreachable, satisfies type checkers
+
+
+def format_month(month_str: str) -> str:
+    """``"2023-01"`` -> ``"Jan 2023"`` for compact, human-friendly labels."""
+    year, month = month_str.split("-")
+    return f"{calendar.month_abbr[int(month)]} {year}"
 
 
 def show_execution_time(result: Result) -> None:

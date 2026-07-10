@@ -35,6 +35,8 @@ class _Keys:
     ANALYSIS_CACHE = "analysis_results"
     METRICS = "execution_metrics"
     LOAD_INFO = "load_info"
+    DOWNLOAD_RANGE = "download_range"
+    LOAD_RANGE = "load_range"
 
 
 def _session() -> Any:
@@ -141,6 +143,23 @@ class AppState:
     @load_info.setter
     def load_info(self, value: dict) -> None:
         _session()[_Keys.LOAD_INFO] = value
+
+    # -- Remembered slider selections (control panel UX) ------------------ #
+    @property
+    def download_range(self) -> tuple[tuple[int, int], tuple[int, int]] | None:
+        return _session().get(_Keys.DOWNLOAD_RANGE)
+
+    @download_range.setter
+    def download_range(self, value: tuple[tuple[int, int], tuple[int, int]]) -> None:
+        _session()[_Keys.DOWNLOAD_RANGE] = value
+
+    @property
+    def load_range(self) -> tuple[tuple[int, int], tuple[int, int]] | None:
+        return _session().get(_Keys.LOAD_RANGE)
+
+    @load_range.setter
+    def load_range(self, value: tuple[tuple[int, int], tuple[int, int]]) -> None:
+        _session()[_Keys.LOAD_RANGE] = value
 
     # -- Execution metrics log ------------------------------------------- #
     @property

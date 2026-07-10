@@ -15,7 +15,7 @@ from typing import Any
 
 from config import PLACEHOLDER_MODE
 from pipeline import analysis as analysis_mod
-from pipeline import cleaning, evaluation, features, loader, ml
+from pipeline import cleaning, dataset_manager, evaluation, features, loader, ml
 from services.state import AppState
 from services.timing import Result, timer
 
@@ -26,16 +26,23 @@ class DataService:
     def __init__(self, state: AppState) -> None:
         self._state = state
 
-    def load(self, spark: Any, data_dir: str | None = None) -> Result:
+    def load(
+        self,
+        spark: Any,
+        data_dir: str | None = None,
+        months: list[tuple[int, int]] | None = None,
+    ) -> Result:
+        """Load the raw dataset. Real from here down -- loading is implemented
+        regardless of ``PLACEHOLDER_MODE``, which still gates cleaning/analysis/ml."""
         with timer() as t:
-            out = loader.load_raw_dataset(spark, data_dir)
+            out = loader.load_raw_dataset(spark, data_dir, months)
         info = out["info"]
         self._state.raw_df = out["df"]
         self._state.load_info = {**info, "elapsed": t.elapsed}
         self._state.record_metric("Dataset load", t.elapsed, info.get("n_records"))
         return Result(value=info, elapsed=t.elapsed,
                       n_records=info.get("n_records"),
-                      placeholder=PLACEHOLDER_MODE)
+                      placeholder=False)
 
     def clean(self) -> Result:
         with timer() as t:
@@ -100,3 +107,39 @@ class ModelingService:
             report = evaluation.evaluate(model, predictions, spec)
         self._state.record_metric(f"Evaluate: {spec.name}", t.elapsed)
         return Result(value=report, elapsed=t.elapsed, placeholder=PLACEHOLDER_MODE)
+
+
+class DatasetManagerService:
+    """Inventory, download, and deletion of the on-disk monthly parquet files.
+
+    Real, and independent of ``PLACEHOLDER_MODE``: this manages files on disk,
+    a step upstream of (and unrelated to) the Spark pipeline stages that are
+    still stubbed.
+    """
+
+    def __init__(self, state: AppState) -> None:
+        self._state = state
+
+    def inventory(self) -> dict:
+        """What's on disk right now. Not timed -- a directory scan, not a
+        long-running operation, so it doesn't belong in the execution-metrics log."""
+        return dataset_manager.coverage_summary()
+
+    def download(self, months: list[tuple[int, int]], on_progress=None) -> Result:
+        with timer() as t:
+            summary = dataset_manager.download_months(months, on_progress=on_progress)
+        n_ok = len(summary["downloaded"])
+        self._state.record_metric("Dataset download", t.elapsed, n_ok)
+        return Result(value=summary, elapsed=t.elapsed, n_records=n_ok, placeholder=False)
+
+    def delete(self, months: list[tuple[int, int]]) -> Result:
+        with timer() as t:
+            summary = dataset_manager.delete_months(months)
+        self._state.record_metric("Dataset delete", t.elapsed, len(summary["deleted"]))
+        return Result(value=summary, elapsed=t.elapsed, placeholder=False)
+
+    def delete_all(self) -> Result:
+        with timer() as t:
+            summary = dataset_manager.delete_all()
+        self._state.record_metric("Dataset delete all", t.elapsed, len(summary["deleted"]))
+        return Result(value=summary, elapsed=t.elapsed, placeholder=False)
