@@ -61,10 +61,25 @@ FEATURE_RATIONALE: dict[str, str] = {
 }
 
 
-def engineer_features(df: Any) -> Any:
-    """Add every engineered column from the notebook to ``df`` (no split)."""
+# The feature set the models actually train on -- the notebook's ``FE_FEATURES``.
+# Deliberately excludes the zone lag features: they need per-zone history, which
+# a single inference row can't supply, and the notebook's best model (R²≈0.97)
+# didn't use them. Same set works for both the fare and duration targets.
+MODEL_FEATURES: tuple[str, ...] = (
+    "trip_distance", "passenger_count", "RatecodeID", "PULocationID", "DOLocationID",
+    "pickup_hour", "pickup_dayofweek", "pickup_month",
+    "is_weekend", "is_rush_hour", "is_airport", "log_distance",
+    "hour_sin", "hour_cos", "dow_sin", "dow_cos",
+)
+
+
+def engineer_basic_features(df: Any) -> Any:
+    """Add the per-row engineered columns (time, flags, cyclical, log_distance).
+
+    Everything in :data:`MODEL_FEATURES` is produced here. No cross-row history,
+    so this is safe on a single inference row as well as on the full dataset.
+    """
     from pyspark.sql import functions as F
-    from pyspark.sql.window import Window
 
     df = add_derived_columns(df)
 
@@ -97,6 +112,19 @@ def engineer_features(df: Any) -> Any:
         .withColumn("dow_sin", F.sin(2 * math.pi * (F.col("pickup_dayofweek") - 1) / 7))
         .withColumn("dow_cos", F.cos(2 * math.pi * (F.col("pickup_dayofweek") - 1) / 7))
     )
+    return df
+
+
+def engineer_features(df: Any) -> Any:
+    """Add every engineered column, including the per-zone lag history features.
+
+    Used by the Preprocessing page's full feature showcase and the train/test
+    split. Models train on :data:`MODEL_FEATURES` (the lag-free subset).
+    """
+    from pyspark.sql import functions as F
+    from pyspark.sql.window import Window
+
+    df = engineer_basic_features(df)
 
     # Per-zone daily history, joined back. Window ends at -1 day (strictly past)
     # so a trip's own day never leaks into its features.
@@ -114,6 +142,28 @@ def engineer_features(df: Any) -> Any:
         how="left",
     )
     return df
+
+
+def inference_frame(spark: Any, inputs: dict) -> Any:
+    """Build a one-row engineered DataFrame from raw user inputs for prediction.
+
+    ``inputs`` carries the raw, user-supplied values (distance, passenger count,
+    rate code, pickup/dropoff zone IDs, and a pickup ``datetime``); this derives
+    every :data:`MODEL_FEATURES` column from them.
+    """
+    from pyspark.sql import Row
+
+    pickup = inputs["pickup_datetime"]
+    row = Row(
+        tpep_pickup_datetime=pickup,
+        tpep_dropoff_datetime=pickup,  # duration isn't a model feature; unused
+        passenger_count=float(inputs["passenger_count"]),
+        trip_distance=float(inputs["trip_distance"]),
+        RatecodeID=float(inputs["RatecodeID"]),
+        PULocationID=int(inputs["PULocationID"]),
+        DOLocationID=int(inputs["DOLocationID"]),
+    )
+    return engineer_basic_features(spark.createDataFrame([row]))
 
 
 def _split_date(df: Any, test_fraction: float) -> Any:

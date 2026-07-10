@@ -3,3 +3,5 @@ pyspark>=4,<5  # Spark 4.x requires Java 17+ (set JAVA_HOME accordingly)
 plotly>=5.22
 pandas>=2.2
 requests>=2.31  # dataset download (pipeline/dataset_manager.py)
+xgboost>=2.1    # GPU-accelerated gradient boosting (SparkXGBRegressor, device="cuda")
+scikit-learn>=1.3  # required by xgboost.spark

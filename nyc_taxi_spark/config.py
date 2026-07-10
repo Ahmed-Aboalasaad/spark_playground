@@ -28,6 +28,10 @@ ZONE_LOOKUP_PATH = Path(
     os.environ.get("NYC_TAXI_ZONE_LOOKUP", PROJECT_ROOT / "reference" / "taxi_zone_lookup.csv")
 )
 
+# Where trained models are saved (Spark PipelineModel dirs + metadata JSON).
+# Kept out of git (see .gitignore: models/). Override with NYC_TAXI_MODELS_DIR.
+MODELS_DIR = Path(os.environ.get("NYC_TAXI_MODELS_DIR", PROJECT_ROOT / "models"))
+
 # Glob used to discover monthly parquet files inside DATA_DIR.
 PARQUET_GLOB = "yellow_tripdata_*.parquet"
 

@@ -1,10 +1,9 @@
 """Model evaluation.
 
-Real responsibility: evaluate trained models and compute RMSE, MAE, and R2,
-plus prediction samples and feature importance when the model supports it.
-
-Skeleton behaviour: returns zeroed metrics, an empty prediction sample, and (if
-the model advertises importance) a zeroed importance table, tagged placeholder.
+Computes RMSE, MAE, and R² for a fitted model's predictions, a small
+prediction-sample frame (actual vs predicted vs error), and feature importance
+for the models that expose it (XGBoost via gain, MLlib trees via
+``featureImportances``).
 """
 from __future__ import annotations
 
@@ -12,44 +11,57 @@ from typing import Any
 
 import pandas as pd
 
-from config import PLACEHOLDER_MODE
-from pipeline.features import CATEGORICAL_FEATURES, NUMERIC_FEATURES
-from pipeline.mock import PLACEHOLDER_LABEL, zero_metrics
+from pipeline.features import MODEL_FEATURES
+from pipeline.ml import PREDICTION_COL, Family
 
 
-def evaluate(model: Any, predictions: Any, spec: Any = None) -> dict:
-    """Evaluate a trained model's predictions.
+def evaluate(model: Any, predictions: Any, target: str, spec: Any = None,
+             sample_n: int = 200) -> dict:
+    """Evaluate a fitted model's predictions on the test set.
 
-    Returns
-    -------
-    dict
-        Metrics, a prediction-sample frame, and optionally feature importance.
+    Returns metrics, a prediction-sample frame, and (when supported) a
+    feature-importance table.
     """
-    if PLACEHOLDER_MODE:
-        result: dict[str, Any] = {
-            "status": PLACEHOLDER_LABEL,
-            "metrics": zero_metrics("RMSE", "MAE", "R2"),
-            "prediction_sample": _empty_prediction_sample(),
-        }
-        if spec is not None and getattr(spec, "supports_feature_importance", False):
-            result["feature_importance"] = _zero_importance()
-        return result
+    from pyspark.ml.evaluation import RegressionEvaluator
 
-    raise NotImplementedError("Real evaluation not yet implemented.")
+    ev = RegressionEvaluator(labelCol=target, predictionCol=PREDICTION_COL)
+    metrics = {
+        "RMSE": float(ev.evaluate(predictions, {ev.metricName: "rmse"})),
+        "MAE": float(ev.evaluate(predictions, {ev.metricName: "mae"})),
+        "R2": float(ev.evaluate(predictions, {ev.metricName: "r2"})),
+    }
 
+    sample = predictions.select(target, PREDICTION_COL).limit(sample_n).toPandas()
+    sample.columns = ["actual", "predicted"]
+    sample["error"] = sample["predicted"] - sample["actual"]
 
-def _empty_prediction_sample(n: int = 10) -> pd.DataFrame:
-    """A prediction-sample frame with the right columns and zeroed values."""
-    return pd.DataFrame(
-        {
-            "actual": [0] * n,
-            "predicted": [0] * n,
-            "error": [0] * n,
-        }
-    )
+    result: dict[str, Any] = {"metrics": metrics, "prediction_sample": sample}
+
+    if spec is not None and getattr(spec, "supports_feature_importance", False):
+        fi = feature_importance(model, spec)
+        if fi is not None:
+            result["feature_importance"] = fi
+    return result
 
 
-def _zero_importance() -> pd.DataFrame:
-    """A feature-importance table across the known feature set, all zeros."""
-    features = list(NUMERIC_FEATURES) + list(CATEGORICAL_FEATURES)
-    return pd.DataFrame({"feature": features, "importance": [0] * len(features)})
+def feature_importance(model: Any, spec: Any) -> pd.DataFrame | None:
+    """Feature-importance table for the last stage of a fitted PipelineModel."""
+    estimator = model.stages[-1]
+    feats = list(MODEL_FEATURES)
+
+    if spec.family is Family.XGBOOST:
+        try:
+            booster = estimator.get_booster()
+            score = booster.get_score(importance_type="gain")  # {"f0": .., "f3": ..}
+            imp = [float(score.get(f"f{i}", 0.0)) for i in range(len(feats))]
+        except Exception:
+            return None
+    else:
+        try:
+            vec = estimator.featureImportances
+            imp = [float(vec[i]) for i in range(len(feats))]
+        except Exception:
+            return None
+
+    pdf = pd.DataFrame({"feature": feats, "importance": imp})
+    return pdf.sort_values("importance", ascending=False, ignore_index=True)
