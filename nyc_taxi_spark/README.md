@@ -1,145 +1,88 @@
-# NYC Taxi Analytics with Apache Spark
+# NYC Taxi Analytics
 
-Interactive analytics and machine-learning application over the NYC Yellow Taxi
-dataset, built to showcase Apache Spark as a unified platform for distributed
-processing, analytics, and MLlib modeling. The UI is Streamlit; visualization
-is Plotly.
+**Distributed analytics and machine learning on 26M+ NYC Yellow Taxi trips — powered by Apache Spark, wrapped in a Streamlit app you can run with one command.**
 
-> **Implementation status.** Dataset loading, **data cleaning**, **data-quality
-> reporting**, **feature engineering**, and all **25 analyses** run real Spark
-> computations (ported from `notebooks/`). The **Data Preprocessing** and
-> **Analysis** pages are fully live. **Modeling** (MLlib train/evaluate) is still
-> placeholder-backed — `config.PLACEHOLDER_MODE` now gates only that stage.
-> Execution timings are real throughout.
+Load months of real trip data, clean it with documented rules, run 25 live Spark analyses, and train GPU-accelerated regression models — all from the browser, no notebook required.
 
-## Running
+<p align="center">
+  <img src="docs/screenshots/home.png" width="90%" alt="Home page — data control panel">
+</p>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/analysis.png" width="100%" alt="Analysis page"></td>
+<td width="50%"><img src="docs/screenshots/preprocessing.png" width="100%" alt="Data quality report"></td>
+</tr>
+<tr>
+<td align="center"><sub>25 live Spark analyses across 6 families</sub></td>
+<td align="center"><sub>Full data-quality report on 26M rows</sub></td>
+</tr>
+</table>
+
+---
+
+## Quick start
+
+The fastest way to run this — no local Python, Java, or Spark install needed:
+
+```bash
+docker compose up --build
+```
+
+Open **http://localhost:8501**, click **Load into Spark**, and go.
+
+Have an NVIDIA GPU? Train XGBoost on it with one extra flag:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+```
+
+<details>
+<summary><strong>Prefer running it directly with Python?</strong></summary>
+
+Requires Java 17+ (Spark 4.x) and Python 3.12.
 
 ```bash
 pip install -r requirements.txt
 streamlit run app/Home.py
 ```
 
-Then, from the Home page, click **Load dataset**. With no parquet files present
-the app still runs fully on placeholder data. To use real data, drop monthly
-files into `data/` (see `data/README.md`) or set `NYC_TAXI_DATA_DIR`.
+</details>
 
-## Running with Docker
+---
 
-No local Python/Java/Spark setup required — the image bundles Java 17 and
-every Python dependency.
+## What it does
 
-```bash
-docker compose up --build
-```
+| | |
+|---|---|
+| **Load** | Pull any range of monthly NYC TLC parquet files straight from the Home page — no manual downloads |
+| **Clean** | Fixed, documented rules (fare/distance/duration ranges, unknown zones) applied before any train/test split |
+| **Analyze** | 25 analyses across demand, geography, trips, revenue, passengers, and airports — every result comes with a chart, metrics, and real execution time |
+| **Model** | Spark MLlib regressors plus GPU-capable XGBoost, evaluated on a held-out future time window |
+| **Inspect** | A Spark Insights page exposes partitions, execution plans, and cache status under the hood |
 
-Then open http://localhost:8501. Downloaded parquet files and trained models
-persist in named volumes (`taxi-data`, `taxi-models`) across restarts.
+Everything runs on one shared `SparkSession` — the UI never touches Spark directly, and the whole pipeline is swappable module-by-module. See [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) for the layering and [`docs/FEATURES.md`](../docs/FEATURES.md) for the full feature spec.
 
-Without Compose:
+---
 
-```bash
-docker build -t nyc-taxi-spark .
-docker run -p 8501:8501 -v taxi-data:/app/data -v taxi-models:/app/models nyc-taxi-spark
-```
+## Configuration
 
-Nothing in the image needs internet access to *start*: the dataset is fetched
-on demand from the Home page's control panel once the app is running. Useful
-overrides (pass as `-e KEY=VALUE` or under `environment:` in compose):
+Everything below is optional — sensible defaults are baked in.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `NYC_TAXI_DRIVER_MEMORY` | `4g` | Spark driver heap; lower on a memory-constrained host |
-| `NYC_TAXI_DATA_DIR` | `/app/data` | Where parquet files are read/written |
-| `NYC_TAXI_MODELS_DIR` | `/app/models` | Where trained models are saved |
+| `NYC_TAXI_DATA_DIR` | `./data` | Where parquet files are read/written |
+| `NYC_TAXI_MODELS_DIR` | `./models` | Where trained models are saved |
+| `NYC_TAXI_DRIVER_MEMORY` | `4g` | Spark driver heap — lower on a memory-constrained machine |
 
-### GPU acceleration (optional)
+## Status
 
-GPU-accelerated XGBoost (`device="cuda"`) works inside the container as-is —
-no separate CUDA base image needed, since the NVIDIA driver, `nvidia-smi`, and
-CUDA libraries are injected by the container runtime at `docker run` time. It
-isn't required: the Modeling page falls back to CPU automatically when no GPU
-is visible.
+Dataset loading, cleaning, data-quality reporting, and all 25 analyses run **real Spark computations** end to end. Modeling (MLlib train/evaluate) is still placeholder-gated behind `config.PLACEHOLDER_MODE` — flip it once you're ready to wire in real training.
 
-Requirements: an NVIDIA GPU + up-to-date driver. On Docker Desktop
-(Windows/Mac, WSL2 backend) that's the only requirement — GPU passthrough is
-built in. On native Linux Docker you also need the
-[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+## Sanity check
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
-# or, without Compose:
-docker run --gpus all -p 8501:8501 -v taxi-data:/app/data -v taxi-models:/app/models nyc-taxi-spark
-```
-
-## Offline checks
-
-The pure-Python layers (config, timing, mock data, zone lookup, registries)
-have no Spark/Streamlit dependency and can be verified directly:
+The pure-Python layers (config, timing, mock data, registries) need neither Spark nor Streamlit:
 
 ```bash
 python smoke_test.py
-```
-
-## Architecture
-
-Layered, with a strict separation between presentation and Spark processing:
-
-```
-Streamlit pages  (app/)            UI only — no Spark calls
-      │
-Application services  (services/)  orchestration + timing, no transforms
-      │
-Spark pipeline  (pipeline/)        all DataFrame logic lives here
-      │
-Shared SparkSession  (spark/)      one session, reused everywhere
-      │
-Parquet files  (data/)  +  zone lookup (reference/)
-```
-
-### Layout
-
-| Path | Role |
-|------|------|
-| `config.py` | Paths, Spark defaults, schema, domain constants, `PLACEHOLDER_MODE` |
-| `spark/session.py` | Single cached `SparkSession` factory + session info |
-| `pipeline/loader.py` | Load raw dataset from parquet |
-| `pipeline/cleaning.py` | Cleaning + data-quality reporting |
-| `pipeline/zones.py` | Zone lookup, airport detection, ID→name resolution |
-| `pipeline/analysis.py` | Registry of 25 analyses across 6 families |
-| `pipeline/features.py` | Feature engineering / train-test split |
-| `pipeline/ml.py` | Registry of 4 MLlib regressors + hyperparameters |
-| `pipeline/evaluation.py` | RMSE / MAE / R² + feature importance |
-| `pipeline/mock.py` | Shared zeroed-but-shaped placeholder generators |
-| `services/` | `timing.py`, `state.py` (AppState), `services.py` (workflows) |
-| `app/` | `Home.py` entrypoint + `pages/` (Preprocessing, Analysis, Modeling, Spark Insights) |
-
-## How the placeholder contract works
-
-`config.PLACEHOLDER_MODE = True` makes every pipeline module return mock data.
-Mock frames have the right columns and row counts (24 hours, 7 weekdays, 12
-months, 3 airports, …) with zeroed values; the UI shows a loud banner and a
-per-result badge. To implement a real analysis or model, replace the relevant
-producer/function in the pipeline module — the service layer, registries, and
-pages need no changes. Flip `PLACEHOLDER_MODE` off once the pipeline is real.
-
-## Extending
-
-- **New analysis:** register one `Analysis` entry in `pipeline/analysis.py`. It
-  appears in the Analysis page automatically.
-- **New model:** register one `ModelSpec` in `pipeline/ml.py`. Its
-  hyperparameter controls render automatically on the Modeling page.
-
-## Notes for the team
-
-- The regression target is `fare_amount` (`config.ML_TARGET_COLUMN`). Adding a
-  second target later is a one-line change plus a selector.
-- **Airport detection quirk:** in the zone lookup, JFK and LaGuardia use
-  `service_zone == "Airports"` but **Newark uses `service_zone == "EWR"`**.
-  Airport detection matches both (`config.AIRPORT_SERVICE_ZONES`) so Newark
-  isn't silently dropped. Whoever writes the real airport analysis should keep
-  this in mind.
-- Location IDs 264 ("Unknown") and 265 ("Outside of NYC") are sentinels, not
-  geography — see `config.UNKNOWN_LOCATION_IDS`.
-- `spark.sql.shuffle.partitions` is set to 8 for local work (Spark's default of
-  200 is far too many for a few months of data). Override in `config.py`.
 ```
