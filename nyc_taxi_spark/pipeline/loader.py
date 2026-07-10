@@ -18,8 +18,33 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from functools import reduce
+
 from config import DATA_DIR, EXPECTED_COLUMNS, PICKUP_COL
 from pipeline import dataset_manager
+
+# Currency columns TLC has, at various points, written as a different physical
+# Parquet type across monthly vintages (e.g. `airport_fee` is INT32 in months
+# before the fee existed, DOUBLE once real fractional amounts appear). Reading
+# such files together with a single `spark.read.parquet(*paths)` call picks one
+# file's schema for all of them and crashes the vectorized reader the moment it
+# hits a file encoded differently. Casting each file to a fixed DoubleType
+# before unioning sidesteps the mismatch regardless of which vintage wrote it.
+MONEY_COLUMNS: tuple[str, ...] = (
+    "fare_amount", "extra", "mta_tax", "tip_amount", "tolls_amount",
+    "improvement_surcharge", "total_amount", "congestion_surcharge", "airport_fee",
+)
+
+
+def _read_one_month(spark: Any, path: Path) -> Any:
+    """Read a single month's parquet file, normalizing money columns to double."""
+    from pyspark.sql import functions as F
+
+    d = spark.read.parquet(str(path))
+    for c in MONEY_COLUMNS:
+        if c in d.columns:
+            d = d.withColumn(c, F.col(c).cast("double"))
+    return d
 
 
 def load_raw_dataset(
@@ -74,7 +99,8 @@ def load_raw_dataset(
     present_months = [m for m, _ in present]
     present_paths = [p for _, p in present]
 
-    df = spark.read.parquet(*(str(p) for p in present_paths))
+    df = reduce(lambda a, b: a.unionByName(b, allowMissingColumns=True),
+                (_read_one_month(spark, p) for p in present_paths))
     missing_columns = validate_schema(df)
     size_bytes = sum(p.stat().st_size for p in present_paths)
 

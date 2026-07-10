@@ -1,0 +1,26 @@
+# Local virtualenv / caches — reinstalled fresh in the image.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Large or machine-specific data — the app downloads/trains these at runtime.
+data/*.parquet
+models/
+
+# Spark scratch state
+spark-warehouse/
+metastore_db/
+derby.log
+
+# VCS / editor / OS cruft
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Not needed inside the image
+README.md

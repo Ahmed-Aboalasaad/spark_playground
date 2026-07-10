@@ -1,0 +1,16 @@
+# GPU override — merge with docker-compose.yml on a host with an NVIDIA GPU:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+#
+# Requires the NVIDIA driver on the host. On Docker Desktop (Windows/Mac with
+# WSL2) that's it — GPU passthrough is built in. On native Linux Docker you
+# also need the NVIDIA Container Toolkit installed.
+services:
+  nyc-taxi-spark:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

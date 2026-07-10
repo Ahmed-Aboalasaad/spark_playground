@@ -90,8 +90,12 @@ class SparkConfig:
 
     # Arrow makes `toPandas()` on small aggregated results fast, which is
     # exactly the access pattern the UI uses (aggregate in Spark, collect a
-    # small frame, hand it to Plotly).
-    arrow_enabled: bool = True
+    # small frame, hand it to Plotly). Off by default: this pyarrow build has
+    # a native crash in its Arrow-IPC path (segfault in libarrow.so, seen from
+    # the Data Preprocessing page's toPandas() calls -- confirmed via the WSL2
+    # kernel log, not a JVM/OOM issue). Re-enable via NYC_TAXI_ARROW_ENABLED=true
+    # only after verifying your pyarrow build doesn't crash on your data.
+    arrow_enabled: bool = os.environ.get("NYC_TAXI_ARROW_ENABLED", "false").lower() == "true"
 
     # Extra raw Spark configs, applied last so they can override anything above.
     extra: dict = field(default_factory=dict)

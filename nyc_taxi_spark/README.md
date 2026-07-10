@@ -23,6 +23,54 @@ Then, from the Home page, click **Load dataset**. With no parquet files present
 the app still runs fully on placeholder data. To use real data, drop monthly
 files into `data/` (see `data/README.md`) or set `NYC_TAXI_DATA_DIR`.
 
+## Running with Docker
+
+No local Python/Java/Spark setup required — the image bundles Java 17 and
+every Python dependency.
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8501. Downloaded parquet files and trained models
+persist in named volumes (`taxi-data`, `taxi-models`) across restarts.
+
+Without Compose:
+
+```bash
+docker build -t nyc-taxi-spark .
+docker run -p 8501:8501 -v taxi-data:/app/data -v taxi-models:/app/models nyc-taxi-spark
+```
+
+Nothing in the image needs internet access to *start*: the dataset is fetched
+on demand from the Home page's control panel once the app is running. Useful
+overrides (pass as `-e KEY=VALUE` or under `environment:` in compose):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NYC_TAXI_DRIVER_MEMORY` | `4g` | Spark driver heap; lower on a memory-constrained host |
+| `NYC_TAXI_DATA_DIR` | `/app/data` | Where parquet files are read/written |
+| `NYC_TAXI_MODELS_DIR` | `/app/models` | Where trained models are saved |
+
+### GPU acceleration (optional)
+
+GPU-accelerated XGBoost (`device="cuda"`) works inside the container as-is —
+no separate CUDA base image needed, since the NVIDIA driver, `nvidia-smi`, and
+CUDA libraries are injected by the container runtime at `docker run` time. It
+isn't required: the Modeling page falls back to CPU automatically when no GPU
+is visible.
+
+Requirements: an NVIDIA GPU + up-to-date driver. On Docker Desktop
+(Windows/Mac, WSL2 backend) that's the only requirement — GPU passthrough is
+built in. On native Linux Docker you also need the
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build
+# or, without Compose:
+docker run --gpus all -p 8501:8501 -v taxi-data:/app/data -v taxi-models:/app/models nyc-taxi-spark
+```
+
 ## Offline checks
 
 The pure-Python layers (config, timing, mock data, zone lookup, registries)

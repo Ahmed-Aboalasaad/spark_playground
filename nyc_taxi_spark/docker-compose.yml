@@ -1,0 +1,15 @@
+services:
+  nyc-taxi-spark:
+    build: .
+    image: nyc-taxi-spark:local
+    ports:
+      - "8501:8501"
+    volumes:
+      - taxi-data:/app/data
+      - taxi-models:/app/models
+    # environment:
+    #   NYC_TAXI_DRIVER_MEMORY: 4g   # lower on an <8 GB machine
+
+volumes:
+  taxi-data:
+  taxi-models:
