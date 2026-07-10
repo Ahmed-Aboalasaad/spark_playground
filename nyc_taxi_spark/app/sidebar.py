@@ -7,13 +7,27 @@ sidebar its own visual identity — a cool teal→indigo palette distinct from t
 blue hero used in the page bodies — so the "control rail" reads as a separate
 surface from the content.
 
+The brand mark ("NYC Taxi Analytics") is rendered via ``st.logo()`` rather than
+inline HTML. Streamlit always renders the auto-generated page navigation into a
+fixed slot at the very top of the sidebar, *before* any custom content added
+inside ``with st.sidebar:`` -- no amount of call-ordering (including switching
+to ``st.navigation``/``st.Page``, verified) changes that. ``st.logo()`` is the
+one thing Streamlit renders into the genuinely-first header slot, above the
+nav, which is what puts the brand mark at the literal top of the sidebar.
+
 Centralizing it here means every page shows an identical, consistent control.
 Streamlit/HTML is emitted lazily inside the function so the module stays
 importable outside a Streamlit runtime.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from services.state import AppState, DatasetChoice
+
+_ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+_BRAND_LOGO = _ASSETS_DIR / "brand_logo.svg"
+_BRAND_ICON = _ASSETS_DIR / "brand_icon.svg"
 
 # Scoped to the sidebar only, so the page bodies keep their own look. A new
 # palette (mint/teal → soft indigo) plus branded header and status chips.
@@ -24,15 +38,6 @@ _SIDEBAR_STYLE = """
     radial-gradient(600px 300px at 20% -5%, #CCFBF1 0%, rgba(204,251,241,0) 60%),
     linear-gradient(180deg, #F0FDFA 0%, #EEF2FF 100%);
 }
-.sb-brand {
-  display: flex; gap: 12px; align-items: center;
-  padding: 14px 16px; border-radius: 14px; margin: 2px 0 14px 0;
-  background: linear-gradient(120deg, #0F766E 0%, #4338CA 100%);
-  color: #fff; box-shadow: 0 12px 26px -16px rgba(15,118,110,.7);
-}
-.sb-brand .ic { font-size: 1.55rem; line-height: 1; }
-.sb-brand .tt { font-size: 1.02rem; font-weight: 800; line-height: 1.1; }
-.sb-brand .sb { opacity: .9; font-size: .74rem; margin-top: 2px; }
 .sb-label {
   text-transform: uppercase; letter-spacing: .08em; font-size: .68rem;
   font-weight: 800; color: #0F766E; margin: 6px 2px 2px 2px;
@@ -64,13 +69,12 @@ def render_sidebar(state: AppState) -> None:
     """Render the branded selector + pipeline status into the sidebar."""
     import streamlit as st
 
+    # The very top of the sidebar, above the page nav -- see module docstring
+    # for why this has to be st.logo() rather than inline HTML.
+    st.logo(str(_BRAND_LOGO), size="large", icon_image=str(_BRAND_ICON))
+
     with st.sidebar:
         st.markdown(_SIDEBAR_STYLE, unsafe_allow_html=True)
-        st.markdown(
-            '<div class="sb-brand"><span class="ic">🚕</span>'
-            '<div><div class="tt">NYC Taxi Analytics</div>'
-            '<div class="sb">Apache Spark · MLlib · Streamlit</div></div></div>',
-            unsafe_allow_html=True)
 
         loaded = state.is_loaded
         cleaned_ready = state.cleaning_summary is not None

@@ -1,0 +1,12 @@
+<svg width="150" height="56" viewBox="0 0 150 56" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NYC Taxi">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </linearGradient>
+  </defs>
+  <rect width="150" height="56" rx="14" fill="url(#brandGradient)"/>
+  <text x="16" y="36" font-size="22">🚕</text>
+  <text x="46" y="35" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="17" font-weight="700" fill="#ffffff">NYC Taxi</text>
+</svg>

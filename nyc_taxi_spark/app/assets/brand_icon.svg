@@ -1,0 +1,10 @@
+<svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NYC Taxi Analytics">
+  <defs>
+    <linearGradient id="brandIconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#4338CA"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#brandIconGradient)"/>
+  <text x="24" y="32" font-size="22" text-anchor="middle">🚕</text>
+</svg>
