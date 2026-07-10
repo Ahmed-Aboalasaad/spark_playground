@@ -2,6 +2,21 @@
 .agents/
 .claude/
 
+# Trained Spark models — saved locally by the Modeling page, regenerated on
+# demand, and (some) far too large + machine-specific to ever commit.
+nyc_taxi_spark/models/
+models/
+
+# Downloaded NYC TLC parquet trip data — fetched via the Home page control
+# panel; large binaries that must never enter the repo (the README stays).
+nyc_taxi_spark/data/*.parquet
+data/*.parquet
+
+# Python caches / build cruft
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
 # OS cruft
 .DS_Store
 Thumbs.db

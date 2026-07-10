@@ -192,6 +192,24 @@ def _split_date(df: Any, test_fraction: float) -> Any:
     return epoch + timedelta(days=int(row["cut"]))
 
 
+def time_split(frame: Any, test_fraction: float) -> tuple[Any, Any]:
+    """Split ``frame`` into (train, test) by pickup date, past → future.
+
+    The single source of truth for the "train on the past, hold out the most
+    recent slice as the future" split used by both feature building and model
+    training. Requires a ``pickup_date`` column (added by
+    :func:`pipeline.cleaning.add_derived_columns`). A degenerate single-day span
+    puts everything in train and yields an empty test set.
+    """
+    from pyspark.sql import functions as F
+
+    cutoff = _split_date(frame, test_fraction)
+    if cutoff is None:
+        return frame, frame.limit(0)
+    return (frame.filter(F.col("pickup_date") < F.lit(cutoff)),
+            frame.filter(F.col("pickup_date") >= F.lit(cutoff)))
+
+
 def build_features(df: Any, test_fraction: float = DEFAULT_TEST_FRACTION, seed: int = 42) -> dict:
     """Assemble features and split into train/test sets.
 
@@ -200,17 +218,9 @@ def build_features(df: Any, test_fraction: float = DEFAULT_TEST_FRACTION, seed: 
     dict
         ``{"train": <df>, "test": <df>, "info": {...}}``.
     """
-    from pyspark.sql import functions as F
-
     feat = engineer_features(df)
     cutoff = _split_date(feat, test_fraction)
-
-    if cutoff is None:
-        # Degenerate single-day span: everything trains, no future holdout.
-        train, test = feat, feat.limit(0)
-    else:
-        train = feat.filter(F.col("pickup_date") < F.lit(cutoff))
-        test = feat.filter(F.col("pickup_date") >= F.lit(cutoff))
+    train, test = time_split(feat, test_fraction)
 
     # Impute the lag features with TRAIN-ONLY means, then reuse on test, so no
     # future information leaks backward into the fill value.

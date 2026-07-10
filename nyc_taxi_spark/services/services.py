@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import PLACEHOLDER_MODE
 from pipeline import analysis as analysis_mod
 from pipeline import cleaning, dataset_manager, evaluation, features, loader, ml
 from services.state import AppState
@@ -126,21 +125,68 @@ class ModelingService:
         self._state.record_metric("Feature signals", t.elapsed)
         return Result(value=out, elapsed=t.elapsed, placeholder=False)
 
-    def train(self, model_key: str, params: dict, train_df: Any = None) -> Result:
-        spec = ml.get_model_spec(model_key)
-        with timer() as t:
-            out = ml.train_model(spec, params, train_df)
-        if out["model"] is not None:
-            self._state.add_model(model_key, out["model"])
-        self._state.record_metric(f"Train: {spec.name}", t.elapsed)
-        return Result(value=out, elapsed=t.elapsed, placeholder=PLACEHOLDER_MODE)
+    # -- Training (real, GPU-capable, background) ------------------------- #
+    def training_frame(self) -> Any:
+        """The DataFrame models train on: always the Cleaned dataset per the
+        architecture, falling back to Raw if cleaning hasn't run yet."""
+        return (self._state.cleaned_df
+                if self._state.cleaned_df is not None else self._state.raw_df)
 
-    def evaluate(self, model_key: str, model: Any = None, predictions: Any = None) -> Result:
-        spec = ml.get_model_spec(model_key)
+    def start_training(self, *, model_key: str, target: str, device: str,
+                       max_rows: int, params: dict, test_fraction: float = 0.2) -> str:
+        """Kick off a background training run and return its job id.
+
+        The heavy lifting (feature engineering, fit, evaluate, save) happens on a
+        daemon thread inside :mod:`services.training`; the page polls the job.
+        """
+        from services import training
+
+        spark = self._state.spark
+        df = self.training_frame()
+        if spark is None or df is None:
+            raise RuntimeError(
+                "No active Spark session or dataset. Load data on the Home page "
+                "first — that starts Spark and populates the raw/cleaned frames.")
+        return training.start_training(
+            spark, df, model_key=model_key, target=target, device=device,
+            max_rows=max_rows, params=params, test_fraction=test_fraction)
+
+    # -- Saved-model registry -------------------------------------------- #
+    def saved_models(self) -> list[dict]:
+        """Metadata for every model saved on disk, newest first."""
+        return ml.list_saved_models()
+
+    def load_saved(self, model_id: str) -> tuple[Any, dict]:
+        """Load a saved PipelineModel and its metadata by id (expensive)."""
+        return ml.load_model(model_id), ml.load_meta(model_id)
+
+    def delete_saved(self, model_id: str) -> None:
+        ml.delete_saved_model(model_id)
+
+    def reevaluate(self, model: Any, meta: dict, test_fraction: float = 0.2) -> Result:
+        """Score a loaded model on a fresh hold-out from the cleaned dataset."""
+        spec = ml.get_model_spec(meta["model_key"])
+        df = self.training_frame()
+        if df is None:
+            raise RuntimeError("Load a dataset on the Home page before re-evaluating.")
         with timer() as t:
-            report = evaluation.evaluate(model, predictions, spec)
-        self._state.record_metric(f"Evaluate: {spec.name}", t.elapsed)
-        return Result(value=report, elapsed=t.elapsed, placeholder=PLACEHOLDER_MODE)
+            report = evaluation.evaluate_saved(
+                model, df, meta["target"], spec, test_fraction=test_fraction)
+        self._state.record_metric(f"Re-evaluate: {spec.name}", t.elapsed,
+                                  report.get("n_test"))
+        return Result(value=report, elapsed=t.elapsed, n_records=report.get("n_test"))
+
+    # -- Single-row inference -------------------------------------------- #
+    def predict(self, model: Any, inputs: dict) -> Result:
+        """Predict the target for one user-supplied trip. Value is a float."""
+        from spark.session import get_spark
+
+        spark = self._state.spark or get_spark()
+        with timer() as t:
+            frame = features.inference_frame(spark, inputs)
+            row = ml.predict(model, frame).select(ml.PREDICTION_COL).first()
+        self._state.record_metric("Inference", t.elapsed, 1)
+        return Result(value=float(row[0]), elapsed=t.elapsed, n_records=1)
 
 
 class DatasetManagerService:

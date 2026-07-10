@@ -102,8 +102,6 @@ def cancel_training(job_id: str) -> None:
 
 
 def _run(job: TrainingJob, spark: Any, df: Any, test_fraction: float) -> None:
-    from pyspark.sql import functions as F
-
     sc = spark.sparkContext
     group = f"train-{job.id}"
     job._cancel_group = group
@@ -114,12 +112,7 @@ def _run(job: TrainingJob, spark: Any, df: Any, test_fraction: float) -> None:
 
         job.status, job.stage_msg = "preparing", "Engineering features & splitting by time…"
         frame = ml.prepare_model_frame(df, job.target)
-        cutoff = feat._split_date(frame, test_fraction)
-        if cutoff is None:
-            train, test = frame, frame.limit(0)
-        else:
-            train = frame.filter(F.col("pickup_date") < F.lit(cutoff))
-            test = frame.filter(F.col("pickup_date") >= F.lit(cutoff))
+        train, test = feat.time_split(frame, test_fraction)
 
         n_train_full = train.count()
         if job.max_rows and n_train_full > job.max_rows:

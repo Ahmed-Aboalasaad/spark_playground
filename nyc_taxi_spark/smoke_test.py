@@ -83,24 +83,37 @@ def main() -> None:
                 assert a.x and a.y, f"{a.key} non-metric chart missing x/y"
     check("analysis: every entry well-formed (producer, chart, x/y, description)", True)
 
-    # -- model registry --------------------------------------------------- #
+    # -- model registry (GPU XGBoost star + 4 MLlib CPU baselines) -------- #
+    # Training/evaluation are now real Spark/XGBoost work (exercised on a
+    # Spark-backed machine, not here). Offline we validate the registry's shape:
+    # right models, a GPU-capable star, and well-formed hyperparameters.
     from pipeline import ml
+    from pipeline import features as feat
     models = ml.list_models()
-    check("ml: 4 models registered", len(models) == 4)
-    check("ml: keys are linear/dtree/rforest/gbt",
-          {m.key for m in models} == {"linear", "dtree", "rforest", "gbt"})
-    out = ml.train_model(models[0], {"regParam": 0.0}, None)
-    check("ml: placeholder train returns no model", out["model"] is None)
+    check("ml: 5 models registered", len(models) == 5)
+    check("ml: keys are xgboost + linear/dtree/rforest/gbt",
+          {m.key for m in models} == {"xgboost", "linear", "dtree", "rforest", "gbt"})
+    xgb = ml.get_model_spec("xgboost")
+    check("ml: xgboost is the GPU-capable star with importances",
+          xgb.gpu_capable and xgb.family is ml.Family.XGBOOST
+          and xgb.supports_feature_importance)
+    check("ml: MLlib models each name an estimator class",
+          all(m.mllib_class for m in models if m.family is ml.Family.MLLIB))
+    for m in models:
+        assert m.name, f"{m.key} missing name"
+        for hp in m.params:
+            assert hp.name and hp.default is not None, f"{m.key}.{hp.name} malformed"
+    check("ml: every model well-formed (name, typed hyperparameters)", True)
+    check("features: MODEL_FEATURES has the notebook's 16 columns",
+          len(feat.MODEL_FEATURES) == 16)
+    check("config: two regression targets (fare + duration)",
+          config.ML_TARGETS == ("fare_amount", "trip_duration_min"))
 
-    # -- evaluation ------------------------------------------------------- #
+    # -- evaluation module (Spark-backed; validate the API is wired) ------ #
     from pipeline import evaluation
-    rep = evaluation.evaluate(None, None, models[1])  # dtree supports importance
-    check("eval: zeroed RMSE/MAE/R2",
-          rep["metrics"] == {"RMSE": 0, "MAE": 0, "R2": 0})
-    check("eval: feature importance present for tree model",
-          "feature_importance" in rep)
-    check("eval: importance values zeroed",
-          rep["feature_importance"]["importance"].sum() == 0)
+    check("eval: evaluate / evaluate_saved / feature_importance callable",
+          callable(evaluation.evaluate) and callable(evaluation.evaluate_saved)
+          and callable(evaluation.feature_importance))
 
     print("\nAll smoke checks passed.")
 
