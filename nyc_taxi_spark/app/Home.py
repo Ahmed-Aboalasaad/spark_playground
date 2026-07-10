@@ -18,7 +18,7 @@ from datetime import date
 import streamlit as st
 
 from app.sidebar import render_sidebar
-from app.ui import format_bytes, format_month, show_execution_time
+from app.ui import format_bytes, format_month, page_header, show_execution_time
 from config import DATASET_EARLIEST_MONTH
 from pipeline import dataset_manager as dm
 from services.services import DataService, DatasetManagerService
@@ -30,14 +30,17 @@ st.set_page_config(page_title="NYC Taxi Analytics", page_icon="🚕", layout="wi
 state = AppState()
 render_sidebar(state)
 
-st.title("🚕 NYC Taxi Analytics with Apache Spark")
+page_header(
+    "NYC Taxi Analytics with Apache Spark",
+    "Distributed loading, cleaning, analytics and MLlib on the NYC Yellow Taxi dataset.",
+    icon="🚕",
+)
 
 st.markdown(
     """
-An interactive analytics and machine-learning application built on **Apache
-Spark**, processing the NYC Yellow Taxi trip dataset. Use the pages in the
-sidebar to explore the data, inspect preprocessing, run analyses, train MLlib
-models, and look under the hood at Spark execution details.
+Use the pages in the sidebar to explore the data, inspect preprocessing, run
+analyses, train MLlib models, and look under the hood at Spark execution details.
+Start by downloading a month or two below, then **Load into Spark**.
 """
 )
 

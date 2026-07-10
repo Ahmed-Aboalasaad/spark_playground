@@ -13,8 +13,7 @@ import pandas as pd
 import streamlit as st
 
 from app.sidebar import render_sidebar
-from app.ui import placeholder_banner, require_dataset
-from config import PLACEHOLDER_MODE
+from app.ui import page_header, require_dataset
 from services.state import AppState
 
 st.set_page_config(page_title="Spark Insights", page_icon="⚙️", layout="wide")
@@ -22,9 +21,11 @@ st.set_page_config(page_title="Spark Insights", page_icon="⚙️", layout="wide
 state = AppState()
 render_sidebar(state)
 
-st.title("⚙️ Spark Insights")
-if PLACEHOLDER_MODE:
-    placeholder_banner()
+page_header(
+    "Spark Insights",
+    "Execution timings, partitions, cache status and query plans for the live session.",
+    icon="⚙️",
+)
 
 # --------------------------------------------------------------------------- #
 # Execution metrics log (always available — timings are real)
@@ -54,15 +55,14 @@ if not require_dataset(state):
 
 df = state.active_df()
 
-if df is None or PLACEHOLDER_MODE:
+if df is None:
     st.caption("Partition count, cache status, storage level, and query plans "
-               "will populate here once a real Spark DataFrame is loaded. In "
-               "placeholder mode there is no live DataFrame to inspect.")
+               "will populate here once a dataset is loaded on the Home page.")
 else:  # pragma: no cover - exercised only with a real Spark DataFrame
     c1, c2, c3 = st.columns(3)
-    c1.metric("Partitions", df.rdd.getNumPartitions())
-    c2.metric("Cached", str(df.is_cached))
-    c3.metric("Storage level", str(df.storageLevel))
+    c1.metric("Partitions", df.rdd.getNumPartitions(), border=True)
+    c2.metric("Cached", str(df.is_cached), border=True)
+    c3.metric("Storage level", str(df.storageLevel), border=True)
 
-    with st.expander("Logical & physical plan"):
+    with st.expander("Logical & physical plan", icon=":material/account_tree:"):
         st.code(df._jdf.queryExecution().toString(), language="text")

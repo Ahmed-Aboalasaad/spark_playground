@@ -62,6 +62,14 @@ def _build_session(cfg: SparkConfig) -> Any:
     os.environ["PYSPARK_PYTHON"] = sys.executable
     os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
+    # Driver heap size must reach the JVM at launch. In local mode the JVM is
+    # already running by the time ``builder.config("spark.driver.memory", ...)``
+    # is applied, so that route is silently ignored; the launcher only honours
+    # ``--driver-memory`` from PYSPARK_SUBMIT_ARGS. Set it here, before the
+    # session (and thus the JVM) is created. Without this the default 1 GB heap
+    # OOMs on multi-month feature engineering.
+    os.environ["PYSPARK_SUBMIT_ARGS"] = f"--driver-memory {cfg.driver_memory} pyspark-shell"
+
     builder = SparkSession.builder.appName(cfg.app_name).master(cfg.master)
     for key, value in cfg.as_spark_conf().items():
         builder = builder.config(key, value)

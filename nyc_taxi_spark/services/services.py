@@ -52,13 +52,24 @@ class DataService:
         self._state.record_metric("Dataset cleaning", t.elapsed,
                                   out["summary"].get("n_output"))
         return Result(value=out["summary"], elapsed=t.elapsed,
-                      placeholder=PLACEHOLDER_MODE)
+                      n_records=out["summary"].get("n_output"), placeholder=False)
 
     def quality_report(self) -> Result:
         with timer() as t:
             report = cleaning.data_quality_report(self._state.active_df())
-        self._state.record_metric("Quality report", t.elapsed)
-        return Result(value=report, elapsed=t.elapsed, placeholder=PLACEHOLDER_MODE)
+        self._state.record_metric("Quality report", t.elapsed, report.get("n_records"))
+        return Result(value=report, elapsed=t.elapsed,
+                      n_records=report.get("n_records"), placeholder=False)
+
+    def cleaning_distributions(self, fraction: float = 0.01) -> Result:
+        """Sampled (before, after) frames for the cleaning-effect distribution plots."""
+        with timer() as t:
+            before = cleaning.sample_for_dist(self._state.raw_df, fraction)
+            after = (cleaning.sample_for_dist(self._state.cleaned_df, fraction)
+                     if self._state.cleaned_df is not None else None)
+        self._state.record_metric("Cleaning distributions", t.elapsed)
+        return Result(value={"before": before, "after": after},
+                      elapsed=t.elapsed, placeholder=False)
 
 
 class AnalysisService:
@@ -75,7 +86,7 @@ class AnalysisService:
         self._state.record_metric(f"Analysis: {entry.title}", t.elapsed, len(frame))
         payload = {"analysis": entry, "frame": frame, "metrics": metrics}
         return Result(value=payload, elapsed=t.elapsed, n_records=len(frame),
-                      placeholder=PLACEHOLDER_MODE)
+                      placeholder=False)
 
 
 class ModelingService:
@@ -89,8 +100,31 @@ class ModelingService:
         df = self._state.cleaned_df or self._state.raw_df
         with timer() as t:
             out = features.build_features(df, test_fraction=test_fraction)
-        self._state.record_metric("Feature engineering", t.elapsed)
-        return Result(value=out, elapsed=t.elapsed, placeholder=PLACEHOLDER_MODE)
+        self._state.record_metric("Feature engineering", t.elapsed,
+                                  out["info"].get("n_train"))
+        return Result(value=out, elapsed=t.elapsed,
+                      n_records=out["info"].get("n_train"), placeholder=False)
+
+    def feature_signals(self, distance_fraction: float = 0.001) -> Result:
+        """Aggregated frames that visually justify the engineered features.
+
+        Runs on the cleaned dataset (falls back to raw). Each entry is a small
+        pandas frame; the Spark aggregation happens inside the pipeline helpers.
+        """
+        from config import DEFAULT_TEST_FRACTION
+        df = self._state.cleaned_df if self._state.cleaned_df is not None else self._state.raw_df
+        with timer() as t:
+            out = {
+                "hourly": features.signal_by_hour(df),
+                "weekday": features.signal_by_weekday(df),
+                "airport": features.signal_airport(df),
+                "distance_fare": features.distance_fare_sample(df, fraction=distance_fraction),
+                "daily": features.daily_trip_series(df),
+                "split_date": features._split_date(
+                    features.add_derived_columns(df), DEFAULT_TEST_FRACTION),
+            }
+        self._state.record_metric("Feature signals", t.elapsed)
+        return Result(value=out, elapsed=t.elapsed, placeholder=False)
 
     def train(self, model_key: str, params: dict, train_df: Any = None) -> Result:
         spec = ml.get_model_spec(model_key)

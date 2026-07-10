@@ -1,74 +1,76 @@
-# Dark dashboard theme -- data-dense, low-glare, tuned for a Spark analytics
-# control panel. Adapted from the "financial-dashboard" template
-# (developing-with-streamlit skill): dark slate surfaces, a bright blue accent
-# for primary actions, and a monospace font for code/metrics so numbers stay
-# legible at a glance.
+# Light analytics theme -- a clean, data-dense control panel for the NYC Taxi
+# Spark app. White main surface, deep-blue primary with an amber accent, and a
+# monospace font for metrics/code so numbers stay legible. Locked to light (a
+# single [theme] section) so the white background is the guaranteed default.
+# Palette tuned for WCAG AA contrast on white.
 
 [theme]
-base = "dark"
-primaryColor = "#60A5FA"             # Bright blue for dark mode
-backgroundColor = "#0F172A"          # Deep slate
-secondaryBackgroundColor = "#1E293B" # Slightly lighter slate
-codeBackgroundColor = "#1E293B"
-textColor = "#F1F5F9"                # Light text
-linkColor = "#60A5FA"
-borderColor = "#334155"
-codeTextColor = "#CBD5E1"
+base = "light"
+primaryColor = "#1E40AF"              # Deep blue — buttons, active elements (white text passes AA)
+backgroundColor = "#FFFFFF"           # White main surface
+secondaryBackgroundColor = "#F1F5F9"  # Slate-100 — cards, widgets, code
+codeBackgroundColor = "#F1F5F9"
+textColor = "#0F172A"                 # Slate-900 body text
+linkColor = "#1D4ED8"
+borderColor = "#E2E8F0"               # Slate-200
+codeTextColor = "#0F172A"
 showWidgetBorder = true
 showSidebarBorder = true
-baseRadius = "8px"
+baseRadius = "10px"
 buttonRadius = "8px"
 
 font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-headingFont = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+headingFont = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap"
 codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
 baseFontSize = 15
 baseFontWeight = 400
 codeFontSize = "13px"
-headingFontSizes = ["28px", "22px", "18px", "16px", "14px", "12px"]
-headingFontWeights = [700, 600, 600, 600, 500, 500]
+headingFontSizes = ["30px", "23px", "18px", "16px", "14px", "12px"]
+headingFontWeights = [800, 700, 600, 600, 500, 500]
 linkUnderline = false
 
-# Semantic colors (status text, badges, chart series)
-greenColor = "#34D399"
-redColor = "#F87171"
-yellowColor = "#FBBF24"
-orangeColor = "#FB923C"
-blueColor = "#60A5FA"
-violetColor = "#A78BFA"
-grayColor = "#94A3B8"
+# Semantic colors (status text, badges) — accessible on white.
+greenColor = "#059669"
+redColor = "#DC2626"
+yellowColor = "#D97706"
+orangeColor = "#D97706"
+blueColor = "#2563EB"
+violetColor = "#7C3AED"
+grayColor = "#64748B"
 
+# Categorical chart series — cohesive, colorblind-considerate on a light canvas.
 chartCategoricalColors = [
-    "#60A5FA",
-    "#34D399",
-    "#A78BFA",
-    "#F87171",
-    "#FBBF24",
-    "#38BDF8",
-    "#94A3B8",
-    "#FB923C",
+    "#1E40AF",
+    "#0D9488",
+    "#D97706",
+    "#7C3AED",
+    "#DC2626",
+    "#2563EB",
+    "#DB2777",
+    "#64748B",
 ]
 
+# Sequential ramp (light → deep blue) for gradients/heatmaps — exactly 10 stops.
 chartSequentialColors = [
-    "#0C4A6E",
-    "#075985",
-    "#0369A1",
-    "#0284C7",
-    "#0EA5E9",
-    "#38BDF8",
-    "#7DD3FC",
-    "#BAE6FD",
-    "#E0F2FE",
-    "#F0F9FF",
+    "#EFF6FF",
+    "#DBEAFE",
+    "#BFDBFE",
+    "#93C5FD",
+    "#60A5FA",
+    "#3B82F6",
+    "#2563EB",
+    "#1D4ED8",
+    "#1E40AF",
+    "#1E3A8A",
 ]
 
-dataframeBorderColor = "#334155"
-dataframeHeaderBackgroundColor = "#1E293B"
+dataframeBorderColor = "#E2E8F0"
+dataframeHeaderBackgroundColor = "#F1F5F9"
 
 [theme.sidebar]
-backgroundColor = "#0F172A"
-secondaryBackgroundColor = "#1E293B"
-codeBackgroundColor = "#1E293B"
-textColor = "#F1F5F9"
-borderColor = "#334155"
-primaryColor = "#60A5FA"
+backgroundColor = "#F8FAFC"           # Slate-50 — subtle separation from white content
+secondaryBackgroundColor = "#EEF2F7"
+codeBackgroundColor = "#EEF2F7"
+textColor = "#0F172A"
+borderColor = "#E2E8F0"
+primaryColor = "#1E40AF"

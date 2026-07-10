@@ -5,12 +5,12 @@ dataset, built to showcase Apache Spark as a unified platform for distributed
 processing, analytics, and MLlib modeling. The UI is Streamlit; visualization
 is Plotly.
 
-> **Skeleton status.** This is a working application skeleton. Every pipeline
-> module currently returns **placeholder data** — correctly shaped, but with all
-> numeric values set to zero and empty charts — so the entire app is navigable
-> and the wiring is testable end-to-end. Real Spark implementations drop into the
-> pipeline modules without touching the UI or services. Execution timings are
-> **real** even in placeholder mode.
+> **Implementation status.** Dataset loading, **data cleaning**, **data-quality
+> reporting**, **feature engineering**, and all **25 analyses** run real Spark
+> computations (ported from `notebooks/`). The **Data Preprocessing** and
+> **Analysis** pages are fully live. **Modeling** (MLlib train/evaluate) is still
+> placeholder-backed — `config.PLACEHOLDER_MODE` now gates only that stage.
+> Execution timings are real throughout.
 
 ## Running
 

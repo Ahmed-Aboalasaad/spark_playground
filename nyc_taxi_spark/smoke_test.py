@@ -20,12 +20,14 @@ def main() -> None:
     # -- config ----------------------------------------------------------- #
     import config
     check("config: 19 expected columns", len(config.EXPECTED_COLUMNS) == 19)
-    check("config: shuffle partitions overridden from 200",
-          config.SPARK_CONFIG.shuffle_partitions == 8)
+    check("config: shuffle partitions sized for local multi-month loads",
+          config.SPARK_CONFIG.shuffle_partitions == 64)
     conf = config.SPARK_CONFIG.as_spark_conf()
     check("config: spark conf flattened",
-          conf["spark.sql.shuffle.partitions"] == "8"
-          and conf["spark.sql.execution.arrow.pyspark.enabled"] == "true")
+          conf["spark.sql.shuffle.partitions"] == "64"
+          and conf["spark.sql.execution.arrow.pyspark.enabled"] == "true"
+          and conf["spark.driver.memory"] == config.SPARK_CONFIG.driver_memory
+          and conf["spark.sql.adaptive.enabled"] == "true")
     check("config: ML target is fare_amount", config.ML_TARGET_COLUMN == "fare_amount")
 
     # -- timing ----------------------------------------------------------- #
@@ -69,18 +71,17 @@ def main() -> None:
     check("analysis: 6 families", len(fams) == 6)
     total = sum(len(analysis.analyses_in(f)) for f in fams)
     check("analysis: 25 analyses registered", total == 25)
-    # Every producer runs and returns (frame, metrics). Value columns must be
-    # zeroed; category/label columns (the x-axis) legitimately carry 0..23,
-    # weekday names, etc., so we only check the declared y column.
+    # Producers now run real Spark aggregations (exercised in the Spark-backed
+    # test, not here). Offline, we validate each entry's shape: a callable
+    # producer, a chart type, a non-empty description, and x/y wired for every
+    # non-metric chart.
     for fam in fams:
         for a in analysis.analyses_in(fam):
-            frame, metrics = a.producer(None)
-            if a.y and a.y in frame.columns:
-                assert frame[a.y].sum() == 0, f"{a.key} value col {a.y} not zero"
-            # metrics dicts must be all-zero too
-            for mk, mv in metrics.items():
-                assert mv == 0, f"{a.key} metric {mk} not zero"
-    check("analysis: every producer returns zeroed value columns & metrics", True)
+            assert callable(a.producer), f"{a.key} producer not callable"
+            assert a.description, f"{a.key} missing description"
+            if a.chart is not analysis.ChartType.METRIC:
+                assert a.x and a.y, f"{a.key} non-metric chart missing x/y"
+    check("analysis: every entry well-formed (producer, chart, x/y, description)", True)
 
     # -- model registry --------------------------------------------------- #
     from pipeline import ml

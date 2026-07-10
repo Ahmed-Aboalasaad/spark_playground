@@ -14,6 +14,7 @@ from app.sidebar import render_sidebar
 from app.ui import (
     placeholder_badge,
     placeholder_banner,
+    page_header,
     render_metrics,
     require_dataset,
     show_execution_time,
@@ -29,9 +30,11 @@ st.set_page_config(page_title="Modeling", page_icon="🤖", layout="wide")
 state = AppState()
 render_sidebar(state)
 
-st.title("🤖 Modeling")
-if PLACEHOLDER_MODE:
-    placeholder_banner()
+page_header(
+    "Modeling",
+    "Configure, train and evaluate Spark MLlib regressors on the cleaned dataset.",
+    icon="🤖",
+)
 
 if not require_dataset(state):
     st.stop()
@@ -97,6 +100,8 @@ st.divider()
 # Train & evaluate
 # --------------------------------------------------------------------------- #
 st.header("3 · Train & evaluate")
+if PLACEHOLDER_MODE:
+    placeholder_banner()
 
 if st.button("Train model", type="primary"):
     with st.spinner(f"Training {spec.name}..."):
